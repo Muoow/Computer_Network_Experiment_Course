@@ -1,0 +1,304 @@
+vlan10 范围：192.168.85.32-63
+           网关：192.168.85.33/27
+           广播地址：192.168.85.63/27
+	  子网掩码：255.255.255.224
+
+vlan20 范围：192.168.85.64-79
+           网关：192.168.85.65/28
+           广播地址：192.168.85.79/28
+	  子网掩码：255.255.255.240
+
+vlan30 范围：192.168.85.80-95
+           网关：192.168.85.81/28
+           广播地址：192.168.85.95/28
+           子网掩码：255.255.255.240
+
+vlan40  范围：192.168.85.0-31
+            网关：192.168.85.1/27
+            广播地址：192.168.85.31/27
+            子网掩码：255.255.255.224
+
+vlan50  范围：192.168.85.96-99
+            网关：192.168.85.97/30
+            广播地址：192.168.85.99/30
+	    子网掩码：255.255.255.252
+
+vlan60  范围：192.168.85.100-103
+            网关：192.168.85.101/30
+            广播地址：192.168.85.103/30
+	    子网掩码：255.255.255.252
+
+两台三层交换机双核心：
+Switch0：
+// 基本配置
+Switch(config)#vlan 10
+Switch(config-vlan)#exit
+Switch(config)#vlan 20
+Switch(config-vlan)#exit
+Switch(config)#int fa 0/3
+Switch(config-if)#sw acc vlan 10
+Switch(config-if)#exit
+Switch(config)#int fa 0/4
+Switch(config-if)#sw acc vlan 20
+Switch(config-if)#exit
+Switch(config)#int rang fa 0/1-2
+Switch(config-if-range)#sw mode tr
+Switch(config-if-range)#exit
+// 生成树rapit-pvst配置
+Switch(config)#spanning-tree mode rapid-pvst
+
+Switch1:
+// 基本配置
+Switch(config)#vlan 30
+Switch(config-vlan)#exit
+Switch(config)#vlan 40
+Switch(config-vlan)#exit
+Switch(config)#int fa 0/3
+Switch(config-if)#sw acc vlan 30
+Switch(config-if)#exit
+Switch(config)#int fa 0/4
+Switch(config-if)#sw acc vlan 40
+Switch(config-if)#exit
+Switch(config)#int rang fa 0/1-2
+Switch(config-if-range)#sw mode tr
+Switch(config-if-range)#exit
+// 生成树rapit-pvst配置
+Switch(config)#spanning-tree mode rapid-pvst
+
+MultiSwitch0：
+// 基本配置
+Switch(config)#vlan 10
+Switch(config-vlan)#exit
+Switch(config)#vlan 20
+Switch(config-vlan)#exit
+Switch(config)#vlan 30
+Switch(config-vlan)#exit
+Switch(config)#vlan 40
+Switch(config-vlan)#exit
+Switch(config)#int rang g 1/0/3-4
+Switch(config-if)#sw tr en d
+Switch(config-if)#sw mode tr
+Switch(config-if)#exit
+Switch(config)#int rang g 1/0/1-2
+Switch(config-if-range)#sw tr en d
+Switch(config-if-range)#sw mode tr
+Switch(config-if-range)#channel-group 1 mode on
+Switch(config-if-range)#exit
+
+// 生成树rapit-pvst配置
+Switch(config)#spanning-tree mode rapid-pvst 
+//vlan 10，vlan 20的根桥，vlan 30，vlan 40的次根
+Switch(config)#spanning-tree vlan 10 priority 4096
+Switch(config)#spanning-tree vlan 20 priority 4096
+Switch(config)#spanning-tree vlan 30 priority 8192
+Switch(config)#spanning-tree vlan 40 priority 8192
+
+// svi接口ip和HSRP的配置
+// vlan10
+Switch(config)#int vlan 10
+Switch(config-if)#ip add 192.168.85.34 255.255.255.224
+Switch(config-if)#standby 1 ip 192.168.85.35
+//抢占，防止低优先级的设备作为网关
+Switch(config-if)#standby 1 preempt 
+//设置设备优先级为105，缺省是100，这样此设备应为组1的主网关
+Switch(config-if)#standby 1 priority 105
+Switch(config-if)#exit
+// vlan20
+Switch(config)#int vlan 20
+Switch(config-if)#ip add 192.168.85.66 255.255.255.240
+Switch(config-if)#standby 2 ip 192.168.85.67
+//抢占，防止低优先级的设备作为网关
+Switch(config-if)#standby 2 preempt 
+//设置设备优先级为105，缺省是100，这样此设备应为组2的主网关
+Switch(config-if)#standby 2 priority 105
+Switch(config-if)#exit
+// vlan 30
+Switch(config)#int vlan 30
+Switch(config-if)#ip add 192.168.85.82 255.255.255.240
+Switch(config-if)#standby 3 ip 192.168.85.83
+//此设备不设优先级，应为备用网关
+Switch(config-if)#standby 3 preempt 
+Switch(config-if)#exit
+// vlan 40
+Switch(config)#int vlan 40
+Switch(config-if)#ip add 192.168.85.2 255.255.255.224
+Switch(config-if)#standby 4 ip 192.168.85.3
+//此设备不设优先级，应为备用网关
+Switch(config-if)#standby 4 preempt 
+Switch(config-if)#exit
+
+// 补充配置
+Switch(config)#int vlan 50
+Switch(config-if)#ip add 192.168.85.97 255.255.255.252
+//启用dhcp
+Switch(config)#service dhcp
+//创建vlan50的dhcp地址池
+Switch(config)#ip dhcp pool vlan50
+//申明地址池的网段
+Switch(dhcp-config)#net 192.168.85.96 255.255.255.252
+//申明此网段的网关地址
+Switch(dhcp-config)#default-router 192.168.85.98
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan10
+Switch(dhcp-config)#net 192.168.85.32 255.255.255.224
+Switch(dhcp-config)#default-router 192.168.85.35
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan20
+Switch(dhcp-config)#net 192.168.85.64 255.255.255.240
+Switch(dhcp-config)#default-router 192.168.85.67
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan30
+Switch(dhcp-config)#net 192.168.85.80 255.255.255.240
+Switch(dhcp-config)#default-router 192.168.85.83
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan40
+Switch(dhcp-config)#net 192.168.85.0 255.255.255.224
+Switch(dhcp-config)#default-router 192.168.85.3
+Switch(dhcp-config)#exit
+
+
+MultiSwitch1：
+// 基本配置
+Switch(config)#vlan 10
+Switch(config-vlan)#exit
+Switch(config)#vlan 20
+Switch(config-vlan)#exit
+Switch(config)#vlan 30
+Switch(config-vlan)#exit
+Switch(config)#vlan 40
+Switch(config-vlan)#exit
+Switch(config)#int rang g 1/0/3-4
+Switch(config-if)#sw tr en d
+Switch(config-if)#sw mode tr
+Switch(config-if)#exit
+Switch(config)#int rang g 1/0/1-2
+Switch(config-if-range)#sw tr en d
+Switch(config-if-range)#sw mode tr
+Switch(config-if-range)#channel-group 1 mode on
+Switch(config-if-range)#exit
+
+// 生成树rapit-pvst配置
+Switch(config)#spanning-tree mode rapid-pvst 
+//vlan 30，vlan 40的根桥，vlan 10，vlan 20的次根
+Switch(config)#spanning-tree vlan 30 priority 4096
+Switch(config)#spanning-tree vlan 40 priority 4096
+Switch(config)#spanning-tree vlan 10 priority 8192
+Switch(config)#spanning-tree vlan 20 priority 8192
+
+// svi接口ip和HSRP的配置
+// vlan10
+Switch(config)#int vlan 10
+Switch(config-if)#ip add 192.168.85.33 255.255.255.224
+Switch(config-if)#standby 1 ip 192.168.85.35
+//此设备不设优先级，应为备用网关
+Switch(config-if)#standby 1 preempt 
+Switch(config-if)#exit
+// vlan20
+Switch(config)#int vlan 20
+Switch(config-if)#ip add 192.168.85.65 255.255.255.240
+Switch(config-if)#standby 2 ip 192.168.85.67
+//此设备不设优先级，应为备用网关
+Switch(config-if)#standby 2 preempt 
+Switch(config-if)#exit
+// vlan 30
+Switch(config)#int vlan 30
+Switch(config-if)#ip add 192.168.85.81 255.255.255.240
+Switch(config-if)#standby 3 ip 192.168.85.83
+//抢占，防止低优先级的设备作为网关
+Switch(config-if)#standby 3 preempt 
+//设置设备优先级为105，缺省是100，这样此设备应为组3的主网关
+Switch(config-if)#standby 3 priority 105
+Switch(config-if)#exit
+// vlan 40
+Switch(config)#int vlan 40
+Switch(config-if)#ip add 192.168.85.1 255.255.255.224
+Switch(config-if)#standby 4 ip 192.168.85.3
+///抢占，防止低优先级的设备作为网关
+Switch(config-if)#standby 4 preempt 
+//设置设备优先级为105，缺省是100，这样此设备应为组4的主网关
+Switch(config-if)#standby 4 priority 105
+Switch(config-if)#exit
+
+// 补充配置
+Switch(config)#int vlan 60
+Switch(config-if)#ip add 192.168.85.101 255.255.255.252
+//启用dhcp
+Switch(config)#service dhcp
+//创建vlan60的dhcp地址池
+Switch(config)#ip dhcp pool vlan60
+//申明地址池的网段
+Switch(dhcp-config)#net 192.168.85.100 255.255.255.252
+//申明此网段的网关地址
+Switch(dhcp-config)#default-router 192.168.85.102
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan10
+Switch(dhcp-config)#net 192.168.85.32 255.255.255.224
+Switch(dhcp-config)#default-router 192.168.85.35
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan20
+Switch(dhcp-config)#net 192.168.85.64 255.255.255.240
+Switch(dhcp-config)#default-router 192.168.85.67
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan30
+Switch(dhcp-config)#net 192.168.85.80 255.255.255.240
+Switch(dhcp-config)#default-router 192.168.85.83
+Switch(dhcp-config)#exit
+Switch(config)#ip dhcp pool vlan40
+Switch(dhcp-config)#net 192.168.85.0 255.255.255.224
+Switch(dhcp-config)#default-router 192.168.85.3
+Switch(dhcp-config)#exit
+
+
+Router0：
+Router(config)#int f 0/0
+Router(config-if)#ip add 192.168.85.98 255.255.255.252
+Router(config-if)#no sh
+Router(config-if)#exit
+Router(config)#int f 0/1
+Router(config-if)#ip add 192.168.85.102 255.255.255.252
+Router(config-if)#no sh
+Router(config)#int s 0/0/0
+Router(config-if)#ip add 100.10.10.1 255.255.255.0
+Router(config-if)#no sh
+
+
+Router1：
+Router(config)#int f 0/0
+Router(config-if)#ip add 202.120.120.1 255.255.255.0
+Router(config-if)#no sh
+Router(config)#int s 0/0/0
+Router(config-if)#ip add 100.10.10.3 255.255.255.0
+Router(config-if)#no sh
+
+
+router0:
+int fa 0/0
+ip nat inside
+exit
+int fa 0/1
+ip nat inside
+exit
+int s 0/0/0
+ip nat outside
+exit
+ip nat pool onlyone 100.10.10.2 100.10.10.2 netmask 255.255.255.0
+access-list 1 permit 192.168.85.0 0.0.0.255 
+ip nat inside source list 1 pool onlyone overload
+ip route 0.0.0.0 0.0.0.0 100.10.10.3
+ip access-list extended denyfinance
+deny ip 192.168.85.80 0.0.0.15 any
+permit ip any any
+exit
+int fa 0/0
+ip access-group denyfinance in
+exit
+int fa 0/1
+ip access-group denyfinance in 
+exit
+
+multi-sw0和 multi-sw1分别配到直接相连的router0的接口的默认路由
+
+
+
+
+
